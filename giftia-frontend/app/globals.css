@@ -94,3 +94,25 @@ legend { padding: 0 6px; font-size: 13px; color: var(--muted); }
   .form label { flex-basis: 100%; }
   button[type="submit"] { width: 100%; }
 }
+
+/* ── お母さんへの誕生日（MotherForm・RecommendCard）──────────────────────
+   メンバーの .reason（件数の理由）と見た目がぶつからないよう、名前は rec- や mother で始める */
+.motherask { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; padding: 14px 16px; border: 1px solid var(--accent); border-radius: 10px; background: var(--accent-soft); font-size: 14px; }
+.motherask button { height: 40px; padding: 0 20px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+.form.mother { flex-direction: column; align-items: stretch; }
+.form.mother .qbox { margin: 0; background: #fff; }
+.form.mother .qbox legend { font-size: 14px; font-weight: 700; color: var(--accent); }
+.form.mother .choices { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.form.mother label.chk { flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 14px; }
+.form.mother .choices input:not([type="checkbox"]) { flex: 1 1 200px; }
+.form.mother .q { width: 100%; }
+.form.mother .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.form.mother .actions button.skip { height: 40px; padding: 0 18px; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--text); font-size: 14px; cursor: pointer; }
+.form.mother .actions button:disabled { opacity: 0.6; cursor: default; }
+
+.rec-reason { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: var(--accent-soft); }
+.rec-reason.pop { background: #f1efea; }
+.rec-reason-main { font-size: 14px; font-weight: 700; color: var(--accent); }
+.rec-reason.pop .rec-reason-main { color: var(--muted); font-weight: 400; }
+.rec-reason-detail { font-size: 13px; margin-top: 2px; color: var(--text); }

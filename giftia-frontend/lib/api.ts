@@ -129,3 +129,55 @@ export function getNext(userId: string, today: string): Promise<{ today: string;
 export function saveRelation(userId: string, recipientKey: string, relation: string): Promise<{ status: string }> {
   return postJson("/api/relations", { userId, recipientKey, relation });
 }
+
+// ── お母さんへの誕生日（3週目以降。要件定義書 FR-01〜05） ─────────────────
+// 候補1件の形：Gift（件数の理由 reasons は使わない）に「使ってもらえそうな理由」を足したもの
+export type Recommendation = Omit<Gift, "reasons"> & {
+  reasonMain: string;      // 1行目：どの手掛かりに合うか（埋めた商品は「人気の商品です」）
+  reasonDetail: string;    // 2行目：説明書き（または商品名）の根拠
+  isPopularFill: boolean;  // 合う商品が足りず、誕生日ランキングから足した商品か
+};
+
+export type RecommendResult = {
+  items: Recommendation[];
+  usedAi: boolean;         // AI で自由入力を言葉に変換できたか
+  aiTried: boolean;        // AI を使おうとしたか（自由入力があったか）
+  searchWords: string[];   // 実際に探した言葉（発表・確認用に画面に出す）
+  excludeWords: string[];  // 外した言葉（去年の失敗）
+};
+
+export type MotherAnswers = {
+  concerns: string[];  // Q1：困りごと（複数）
+  concernText: string; // Q1 その他：困りごと（自由入力。AI で探す言葉に変える）
+  hint: string;        // Q2：自由入力
+  lastGift: string;    // Q3-1：去年贈った物
+  lastResult: string;  // Q3-2：その結果
+};
+
+// Q1 の選択肢（困りごと）を API からもらう
+export async function fetchConcerns(): Promise<string[]> {
+  const res = await fetch(`${API}/api/concerns`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data: { concerns: { label: string }[] } = await res.json();
+  return data.concerns.map((c) => c.label);
+}
+
+// 3つの質問の答えを送り、おすすめ5件をもらう。API 側は最長でも約10秒で返す。念のため15秒で打ち切る
+export async function recommendGifts(a: MotherAnswers): Promise<RecommendResult> {
+  const params = new URLSearchParams();
+  a.concerns.forEach((c) => params.append("concerns", c)); // 複数選んだら concerns=..&concerns=..
+  if (a.concernText.trim()) params.set("concern_text", a.concernText.trim());
+  if (a.hint.trim()) params.set("hint", a.hint.trim());
+  if (a.lastGift.trim()) params.set("last_gift", a.lastGift.trim());
+  if (a.lastResult) params.set("last_result", a.lastResult);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(`${API}/api/recommend?${params.toString()}`, { signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}

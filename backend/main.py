@@ -22,6 +22,7 @@ import local_store
 from database import fetch_all
 from occasions import build_suggestions
 from ranking import PURPOSES, RECIPIENTS, rank_products, sort_rule_text
+from recommend import get_concerns, recommend  # お母さんへの誕生日（要件定義書 FR-01〜05）
 
 load_dotenv()
 
@@ -264,3 +265,26 @@ def next_occasions(
         "today": base.isoformat(),
         "suggestions": build_suggestions(orders, local_store.relations_of(user_id), local_store.shared_use_of(user_id), base),
     }
+
+
+# ── お母さんへの誕生日（要件定義書 FR-01〜05）────────────────────────────
+# 「母 × 誕生日」を選んだ人に、3つの質問で母の手掛かりを聞き、合う商品5件を理由つきで返す。
+# 班のDBは読むだけ（concern_keywords と products / product_scenes を SELECT）。
+
+
+@app.get("/api/concerns")
+def concerns():
+    """Q1（最近困っていること）の選択肢。対応表 concern_keywords から作る"""
+    return {"concerns": get_concerns()}
+
+
+@app.get("/api/recommend")
+def recommend_api(
+    concerns: list[str] = Query(default=[], description="Q1：選んだ困りごと（複数可）"),
+    hint: str = Query(default="", max_length=200, description="Q2：「便利そう」と言っていた物（自由入力）"),
+    last_gift: str = Query(default="", max_length=100, description="Q3-1：去年贈った物（自由入力）"),
+    last_result: str = Query(default="", description="Q3-2：その結果（選択）"),
+    concern_text: str = Query(default="", max_length=200, description="Q1 その他：困りごと（自由入力・AI で探す言葉に変換）"),
+):
+    """母の手掛かりから、合う商品を5件。足りない分は誕生日向けランキングで埋める。理由つき"""
+    return recommend(concerns, hint, last_gift, last_result, concern_text)
