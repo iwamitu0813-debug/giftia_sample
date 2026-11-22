@@ -10,3 +10,13 @@ node_modules/
 venv/
 .venv/
 __pycache__/
+
+
+# 接続情報とPC内のデータは上げない
+.env
+.env.local
+*.db
+__pycache__/
+.pytest_cache/
+node_modules/
+.next/
