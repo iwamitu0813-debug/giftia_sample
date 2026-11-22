@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import ResultCard from "./ResultCard";
+import MotherForm from "./MotherForm"; // 母 × 誕生日：3つの質問で選ぶ（要件定義書 FR-01〜05）
 import {
   getNext, getOptions, listCards, saveRelation, searchGifts,
   type CardSummary, type Options, type SearchResponse, type Suggestion,
@@ -32,6 +33,7 @@ export default function Home() {
   const [found, setFound] = useState<SearchResponse | null>(null);
   const [searched, setSearched] = useState({ recipient: "", purpose: "" }); // 検索したときの条件（カード作成に使う）
   const [loading, setLoading] = useState(false);
+  const [askMother, setAskMother] = useState(false); // 母 × 誕生日：3つの質問の画面を出しているか
 
   // 贈ったギフト／次の機会
   const [cards, setCards] = useState<CardSummary[] | null>(null);
@@ -108,7 +110,10 @@ export default function Home() {
       {error && <p className="error">{error}</p>}
 
       {/* ── ギフトを探す ── */}
-      {tab === "search" && (
+      {/* 母 × 誕生日：3つの質問で選ぶ画面（タイルの画面の代わりに出す） */}
+      {tab === "search" && askMother && <MotherForm onBack={() => setAskMother(false)} />}
+
+      {tab === "search" && !askMother && (
         <>
           <form className="form" onSubmit={onSearch}>
             {/* 入口：相手と機会を、絵のタイルから選ぶ（もう一度押すと選択を外せる） */}
@@ -148,6 +153,14 @@ export default function Home() {
             </label>
             <button type="submit" disabled={loading}>{loading ? "検索中…" : "検索"}</button>
           </form>
+
+          {/* 母 × 誕生日を選んだら、3つの質問へ進む入口を出す（Dさんの場面） */}
+          {recipient === "mother" && purpose === "誕生日" && (
+            <div className="motherask">
+              <p>お母さんへの誕生日ですね。最近のお母さんの様子を3つ答えると、使ってもらえそうな品を理由つきで5つ選びます。</p>
+              <button type="button" onClick={() => setAskMother(true)}>3つの質問に答えて選ぶ</button>
+            </div>
+          )}
 
           {found && (
             <section>
