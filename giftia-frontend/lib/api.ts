@@ -1,45 +1,131 @@
-// lib/api.ts — 2週目：searchGifts() の中身を「FastAPI に聞く」に差し替える（穴埋め版）
-// 【穴5】【穴6】を、対応表と公式ドキュメントを頼りに自分で埋める。
-// 1週目の lib/sampleGifts.ts は、このファイルに置き換える（ダミーは使わない）。
-// 答えは 配布コード/答え合わせ/frontend/api.ts（自分で埋めてから見る）。
+// lib/api.ts — 画面から FastAPI を呼ぶ関数をまとめたファイル
+// 2週目からの変更：検索条件に「贈る相手」「贈る機会」を足し、結果に「理由（reasons）」が付く。
+// あわせて、メッセージカード・受け取った人の返信・次の機会の案内を呼ぶ関数を足した。
 
-// 画面が使う商品の形。1週目と同じ（画面・ResultCard は変えない）
-export type Gift = {
-  id: string;          // 商品ID（例 G0001）
-  category: string;    // カテゴリ
-  brand: string;       // ブランド・店名
-  name: string;        // 商品名
-  price: number;       // 価格（円）
-  rating: number;      // レビューの平均
-  reviewCount: number; // レビュー件数
+// 順位の理由。API が件数つきで返すので、画面は並べるだけ（順位の根拠と表示が必ず一致する）
+export type Reason = {
+  kind: "used" | "voice" | "chosen"; // 使っています／その相手に贈ったレビュー／選ばれた注文
+  label: string;                      // 例：「家族 × 誕生日で選ばれた 48件」
+  count: number;
+  isTest: boolean;                    // テスト用データを含むか
 };
 
-// 画面から渡す検索条件（2つのタブの分をまとめて持つ）
+export type Gift = {
+  id: string;
+  category: string;
+  brand: string;
+  name: string;
+  price: number;
+  rating: number;
+  reviewCount: number;
+  reasons: Reason[];
+};
+
 export type SearchCondition = {
-  keyword: string;    // いまの検索：キーワード
-  category: string;   // いまの検索：カテゴリー（空ならすべて）
-  indivWrap: boolean; // 取引先へのお礼：個包装だけ
-  priceBand: string;  // 取引先へのお礼："" | "3000" | "5000"
+  recipient: string; // 贈る相手（空なら指定なし）
+  purpose: string;   // 贈る機会（空なら指定なし）
+  keyword: string;
+  priceBand: string; // "" | "3000" | "5000"
+};
+
+export type SearchResponse = {
+  total: number;
+  sortRule: string;      // 並び順の説明
+  evidenceCount: number; // 上位のうち実績のある件数。ここから下は人気順
+  results: Gift[];
+};
+
+export type Options = {
+  recipients: { key: string; label: string }[];
+  purposes: string[];
+  relations: string[];
+  personas: { userId: string; label: string }[];
+};
+
+export type CardSummary = {
+  code: string;
+  product_id: string;
+  product_name: string;
+  recipient: string;
+  purpose: string;
+  message: string;
+  reason: string;
+  created_at: string;
+  thanks: string | null;          // お礼の言葉（返信があれば）
+  replied_at: string | null;
+  shared_in_use: string | null;   // 受け取った人が伝えると選んだときだけ入る
+};
+
+export type CardForRecipient = { senderName: string; message: string; productName: string; replied: boolean };
+
+export type Suggestion = {
+  type: "annual" | "cross";
+  recipientKey: string;
+  relation: string;
+  purpose: string;
+  nextDate: string;
+  noticeFrom: string;
+  soon: boolean;
+  lastDate?: string;
+  lastProductName?: string;
+  times?: number;
+  sameAsBefore?: boolean;
+  usedShared?: boolean;
+  needsRelation?: boolean;
+  suppressed?: boolean;
+  note?: string;
 };
 
 // API の場所。NEXT_PUBLIC_ の値はブラウザに配られる＝秘密は置かない（.env.local に書く）
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-// 入力した条件をサーバー（FastAPI）に送り、結果（Gift の配列）をもらう
-export async function searchGifts(c: SearchCondition): Promise<Gift[]> {
-  // ① 条件を URL のクエリ（?q=...&category=...）に組み立てる。空の条件は送らない
-  const params = new URLSearchParams();
-  if (c.keyword) params.set("q", c.keyword);
-  if (c.category) params.set("category", c.category);
-  if (c.indivWrap) params.set("indiv_wrap", "true");
-  if (c.priceBand === "3000") { params.set("price_min", "3000"); params.set("price_max", "4999"); } // 3,000以上 5,000未満
-  if (c.priceBand === "5000") { params.set("price_min", "5000"); params.set("price_max", "9999"); } // 5,000以上 10,000未満
-
-  // ② fetch で API を呼ぶ（通信が終わるまで待つ＝await）
-  const res = await fetch(`${API}/api/search?${params.toString()}`);
+async function getJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${API}${path}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
-  // ③ 返ってきた JSON を読む。{ total, results } の results が Gift の配列
-  const data = await res.json(); /* 【穴6】レスポンスの本文を JSON として読む（これも待つ） */;
-  return data.results;
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export function getOptions(): Promise<Options> {
+  return getJson("/api/options");
+}
+
+export function searchGifts(c: SearchCondition): Promise<SearchResponse> {
+  const params = new URLSearchParams();
+  if (c.recipient) params.set("recipient", c.recipient);
+  if (c.purpose) params.set("purpose", c.purpose);
+  if (c.keyword) params.set("q", c.keyword);
+  if (c.priceBand === "3000") { params.set("price_min", "3000"); params.set("price_max", "4999"); }
+  if (c.priceBand === "5000") { params.set("price_min", "5000"); params.set("price_max", "9999"); }
+  return getJson(`/api/search?${params.toString()}`);
+}
+
+export function createCard(body: { userId: string; productId: string; recipient: string; purpose: string; senderName: string; message: string; reason: string }): Promise<{ code: string }> {
+  return postJson("/api/cards", body);
+}
+
+export async function listCards(userId: string): Promise<CardSummary[]> {
+  return (await getJson<{ cards: CardSummary[] }>(`/api/cards?user_id=${encodeURIComponent(userId)}`)).cards;
+}
+
+export function getCard(code: string): Promise<CardForRecipient> {
+  return getJson(`/api/cards/${encodeURIComponent(code)}`);
+}
+
+export function sendReply(code: string, body: { thanks: string; inUse: string; shareUse: boolean; stars: number | null; comment: string }): Promise<{ status: string }> {
+  return postJson(`/api/cards/${encodeURIComponent(code)}/reply`, body);
+}
+
+export function getNext(userId: string, today: string): Promise<{ today: string; suggestions: Suggestion[] }> {
+  const t = today ? `&today=${today}` : "";
+  return getJson(`/api/next?user_id=${encodeURIComponent(userId)}${t}`);
+}
+
+export function saveRelation(userId: string, recipientKey: string, relation: string): Promise<{ status: string }> {
+  return postJson("/api/relations", { userId, recipientKey, relation });
 }
